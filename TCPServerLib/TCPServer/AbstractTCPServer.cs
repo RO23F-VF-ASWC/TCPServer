@@ -16,6 +16,8 @@ namespace TCPServerLib.TCPServer
         private readonly int PORT;
         private readonly String NAME;
 
+        private readonly List<Task> currentClients;
+
 
         /// <summary>
         /// Default constructor with name=dummy and port=65000
@@ -47,6 +49,8 @@ namespace TCPServerLib.TCPServer
         {
             PORT = port;
             NAME = name;
+
+            currentClients= new List<Task>();
         }
 
         /// <summary>
@@ -73,17 +77,25 @@ namespace TCPServerLib.TCPServer
                     TcpClient client = listener.AcceptTcpClient();
                     Console.WriteLine("Client incoming");
 
-                    Task.Run(() =>
-                    {
-                        TcpClient tmpClient = client;
-                        DoOneClient(client);
-                    });
+                    currentClients.Add(     // add new client task to current runing task
+                        Task.Run(() =>
+                        {
+                            TcpClient tmpClient = client;
+                            DoOneClient(client);
+                        })
+                    );
                 }
                 else
                 {
                     Thread.Sleep(500);
                 }
 
+            }
+
+            // wait for all task to finished
+            foreach (Task task in currentClients)
+            {
+                task.Wait();
             }
             Console.WriteLine($"Server '{NAME}' on port={PORT} is stopped");
         }
