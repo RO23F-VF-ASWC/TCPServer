@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace TCPServerLib.TCPServer
 {
@@ -16,7 +17,8 @@ namespace TCPServerLib.TCPServer
         private readonly int PORT;
         private readonly String NAME;
 
-        private readonly List<Task> currentClients;
+        private readonly List<Task> _currentClients;
+        private readonly TraceSource _trace;
 
 
         /// <summary>
@@ -50,8 +52,13 @@ namespace TCPServerLib.TCPServer
             PORT = port;
             NAME = name;
 
-            currentClients= new List<Task>();
+            _currentClients= new List<Task>();
+
+            _trace = new TraceSource(NAME);
+            SetUpTracing();
         }
+
+        
 
         /// <summary>
         /// This variable tell if the TCP server should stop - initial false
@@ -64,8 +71,8 @@ namespace TCPServerLib.TCPServer
         {
             TcpListener listener = new TcpListener(IPAddress.Any, PORT);
             listener.Start();
-            Console.WriteLine($"Server '{NAME}' started on port={PORT}");
-
+            _trace.TraceEvent(TraceEventType.Information, PORT, $"Server '{NAME}' started on port={PORT}");
+            
             // Start stop server
             Task.Run(() => ShutDownServer());
 
@@ -75,9 +82,9 @@ namespace TCPServerLib.TCPServer
                 if (listener.Pending())
                 {
                     TcpClient client = listener.AcceptTcpClient();
-                    Console.WriteLine("Client incoming");
+                    _trace.TraceEvent(TraceEventType.Information, PORT, "Client incoming");
 
-                    currentClients.Add(     // add new client task to current runing task
+                    _currentClients.Add(     // add new client task to current runing task
                         Task.Run(() =>
                         {
                             TcpClient tmpClient = client;
@@ -93,11 +100,11 @@ namespace TCPServerLib.TCPServer
             }
 
             // wait for all task to finished
-            foreach (Task task in currentClients)
+            foreach (Task task in _currentClients)
             {
                 task.Wait();
             }
-            Console.WriteLine($"Server '{NAME}' on port={PORT} is stopped");
+            _trace.TraceEvent(TraceEventType.Information, PORT, $"Server '{NAME}' on port={PORT} is stopped");
         }
 
         private void DoOneClient(TcpClient sock)
@@ -106,7 +113,7 @@ namespace TCPServerLib.TCPServer
             using (StreamWriter sw = new StreamWriter(sock.GetStream()))
             {
                 sw.AutoFlush = true;
-                Console.WriteLine("Handle one client");
+                _trace.TraceEvent(TraceEventType.Information, PORT, "Handle one client");
 
                 // template call
                 TcpServerWork(sr, sw);
@@ -119,6 +126,26 @@ namespace TCPServerLib.TCPServer
         /// <param name="sr">The incomming socket as a text reading stream</param>
         /// <param name="sw">The outgoing socket as a text writing stream - autoflush is set to true</param>
         protected abstract void TcpServerWork(StreamReader sr, StreamWriter sw);
+
+
+        /* 
+         * Help method to Set Up Tracing
+         */
+        private void SetUpTracing()
+        {
+            _trace.Switch = new SourceSwitch(NAME + "trace", "all");
+
+            _trace.Listeners.Add(new ConsoleTraceListener());
+            
+            TraceListener txtLog = new TextWriterTraceListener(NAME + "-Log.txt");
+            _trace.Listeners.Add(txtLog);
+
+            TraceListener xmlLog = new XmlWriterTraceListener(NAME + "-Log.xml");
+            _trace.Listeners.Add(xmlLog);
+
+
+        }
+
 
 
 
@@ -136,12 +163,12 @@ namespace TCPServerLib.TCPServer
         {
             TcpListener stopListener = new TcpListener(IPAddress.Any, PORT+1);
             stopListener.Start();
-            Console.WriteLine($"StopServer started on port={PORT+1}");
+            _trace.TraceEvent(TraceEventType.Information, PORT, $"StopServer started on port={PORT+1}");
 
             while (!stopShutdown)
             {
                 TcpClient client = stopListener.AcceptTcpClient();
-                Console.WriteLine("Client incoming for stopping");
+                _trace.TraceEvent(TraceEventType.Warning, PORT, "Client incoming for stopping");
 
                 DoStopClient(client);
 
@@ -164,6 +191,10 @@ namespace TCPServerLib.TCPServer
                 if (str.Trim().ToLower() == "stop")
                 {
                     stopShutdown = true;
+                }
+                else
+                {
+                    _trace.TraceEvent(TraceEventType.Warning, PORT, $"Someone tried to stop the server, but failed");
                 }
             }
         }
