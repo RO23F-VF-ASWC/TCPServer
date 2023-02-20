@@ -1,0 +1,8 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<TCPconfig>
+	<ServerPort>7007</ServerPort>
+	<StopServerPort>8008</StopServerPort>
+	<ServerName>My Echo Server</ServerName>
+	<DebugLevel>information</DebugLevel>
+	<LogFilesPath>.\TCPServer</LogFilesPath>
+</TCPconfig>

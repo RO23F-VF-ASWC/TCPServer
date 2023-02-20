@@ -17,13 +17,16 @@ namespace TryMyServer
         {
         }
 
-        public EchoServer(string name) : base(name)
+        
+        public EchoServer(string configFilePath) : base(configFilePath)
         {
         }
 
         public EchoServer(string name, int port) : base(name, port)
         {
         }
+
+
 
         protected override void TcpServerWork(StreamReader sr, StreamWriter sw)
         {
